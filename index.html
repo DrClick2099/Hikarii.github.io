@@ -210,6 +210,17 @@
     flex:1;
     min-width:110px;
   }
+  select.variant option[value=""]{ color:var(--ink-dim); }
+  select.variant.variant-error{
+    border-color:#e0102a;
+    box-shadow:0 0 0 2px rgba(224,16,42,0.35);
+    animation: shake .3s;
+  }
+  @keyframes shake{
+    0%,100%{ transform:translateX(0); }
+    25%{ transform:translateX(-3px); }
+    75%{ transform:translateX(3px); }
+  }
   .addbtn{
     background:var(--red);
     color:#fff;
@@ -426,7 +437,7 @@
     <h1 class="brand-title">HIKARII<br>SUSHI</h1>
   </div>
   <div class="brand-sub">Menú Digital</div>
-  <div class="phone-line">📞 449 576 0426</div>
+  <div class="phone-line">📞 449 216 6598</div>
 </header>
 
 <nav class="tabs" id="tabs"></nav>
@@ -455,6 +466,11 @@
     </select>
     <label class="flabel">Dirección (si aplica)</label>
     <input class="field" id="address" placeholder="Calle, número, colonia">
+    <label class="flabel">Método de pago</label>
+    <select class="field" id="paymentMethod">
+      <option value="Efectivo">Efectivo</option>
+      <option value="Tarjeta">Tarjeta</option>
+    </select>
     <label class="flabel">Notas / instrucciones</label>
     <textarea class="field" id="notes" rows="2" placeholder="Ej. sin cebollín, extra picante..."></textarea>
     <button class="wa-btn" id="sendWA">
@@ -465,7 +481,7 @@
 </div>
 
 <footer>
-  Hikarii Sushi · 449 576 0426
+  Hikarii Sushi · 449 216 6598
   <div><button class="admin-link" id="adminBtn">📊 Panel de ingresos (admin)</button></div>
 </footer>
 
@@ -479,7 +495,7 @@
     <div class="admin-body">
       <table class="admin-table">
         <thead>
-          <tr><th>Folio</th><th>Fecha</th><th>Cliente</th><th>Pedido</th><th>Total</th></tr>
+          <tr><th>Folio</th><th>Fecha</th><th>Cliente</th><th>Pedido</th><th>Pago</th><th>Total</th></tr>
         </thead>
         <tbody id="adminTableBody"></tbody>
       </table>
@@ -492,7 +508,7 @@
 
 <script>
 /* ======================= DATA ======================= */
-const WHATSAPP_NUMBER = "524495760426"; // 52 + número (ajustar si es necesario)
+const WHATSAPP_NUMBER = "524492166598"; // 52 + número (ajustar si es necesario)
 
 const menu = [
 {
@@ -711,6 +727,12 @@ function renderItem(item){
 
   const select = div.querySelector('select.variant');
   if(item.variants && select){
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Seleccionar...';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    select.appendChild(placeholder);
     item.variants.forEach(([label, price]) => {
       const opt = document.createElement('option');
       opt.value = label;
@@ -724,6 +746,12 @@ function renderItem(item){
   btn.onclick = () => {
     let variantLabel = null, price = item.price;
     if(item.variants && select){
+      if(!select.value){
+        select.classList.add('variant-error');
+        select.focus();
+        setTimeout(() => select.classList.remove('variant-error'), 1200);
+        return;
+      }
       const opt = select.options[select.selectedIndex];
       variantLabel = opt.value;
       price = Number(opt.dataset.price);
@@ -892,6 +920,7 @@ document.getElementById('sendWA').onclick = async () => {
   const name = document.getElementById('custName').value.trim();
   const deliveryType = document.getElementById('deliveryType').value;
   const address = document.getElementById('address').value.trim();
+  const paymentMethod = document.getElementById('paymentMethod').value;
   const notes = document.getElementById('notes').value.trim();
   const discount = rolloDiscount();
   const total = cartTotal();
@@ -911,6 +940,7 @@ document.getElementById('sendWA').onclick = async () => {
   if(name) msg += `Nombre: ${name}\n`;
   msg += `Entrega: ${deliveryType}\n`;
   if(deliveryType === 'Entrega a domicilio' && address) msg += `Dirección: ${address}\n`;
+  msg += `Método de pago: ${paymentMethod}\n`;
   if(notes) msg += `Notas: ${notes}\n`;
 
   await saveOrder({
@@ -919,6 +949,7 @@ document.getElementById('sendWA').onclick = async () => {
     customer: name || '(sin nombre)',
     delivery: deliveryType,
     address,
+    paymentMethod,
     notes,
     items: cart.map(c => ({ name:c.name, variant:c.variant, price:c.price, qty:c.qty, rollo:c.rollo })),
     discount,
@@ -961,7 +992,7 @@ async function renderAdminPanel(){
 
   const tbody = document.getElementById('adminTableBody');
   if(orders.length === 0){
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--ink-dim); padding:24px;">Aún no hay pedidos guardados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--ink-dim); padding:24px;">Aún no hay pedidos guardados.</td></tr>`;
   }else{
     tbody.innerHTML = orders.slice().reverse().map(o => {
       const d = new Date(o.timestamp);
@@ -972,6 +1003,7 @@ async function renderAdminPanel(){
         <td>${fecha}</td>
         <td>${o.customer}</td>
         <td>${itemsResumen}</td>
+        <td>${o.paymentMethod || '—'}</td>
         <td>$${o.total}</td>
       </tr>`;
     }).join('');
